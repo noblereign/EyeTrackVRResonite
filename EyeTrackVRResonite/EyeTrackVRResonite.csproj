@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <ProjectGuid>{f6ad1524-11dd-4908-8aae-264488b65de6}</ProjectGuid>
         <AssemblyTitle>EyeTrackVRResonite</AssemblyTitle>
@@ -22,6 +22,7 @@
         <ResonitePath Condition="Exists('/home/plyshka/Games/SteamLibrary/steamapps/common/Resonite/')">/home/plyshka/Games/SteamLibrary/steamapps/common/Resonite/</ResonitePath>
         <ResonitePath Condition="Exists('C:\Program Files (x86)\Steam\steamapps\common\Resonite\')">C:\Program Files (x86)\Steam\steamapps\common\Resonite\</ResonitePath>
         <ResonitePath Condition="Exists('$(HOME)/.steam/steam/steamapps/common/Resonite/')">$(HOME)/.steam/steam/steamapps/common/Resonite/</ResonitePath>
+        <ResonitePath Condition="Exists('P:\SteamLibrary\steamapps\common\Resonite\')">P:\SteamLibrary\steamapps\common\Resonite\</ResonitePath>
     </PropertyGroup>
 
     <ItemGroup>
