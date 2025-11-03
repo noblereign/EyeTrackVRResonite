@@ -32,9 +32,6 @@
         <Reference Include="Elements.Core">
             <HintPath>$(ResonitePath)Elements.Core.dll</HintPath>
         </Reference>
-        <Reference Include="Assembly-CSharp">
-            <HintPath>$(ResonitePath)Assembly-CSharp.dll</HintPath>
-        </Reference>
         <Reference Include="ResoniteModLoader">
             <HintPath>$(ResonitePath)Libraries\ResoniteModLoader.dll</HintPath>
             <HintPath Condition="Exists('$(ResonitePath)ResoniteModLoader.dll')">$(ResonitePath)ResoniteModLoader.dll</HintPath>
