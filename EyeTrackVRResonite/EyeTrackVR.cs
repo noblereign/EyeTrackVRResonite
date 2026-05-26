@@ -161,7 +161,7 @@ namespace EyeTrackVRResonite
                             _eyes.LeftEye
                         );
 
-                        var rightEyeDirection = Project2DTo3D(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/RightEyeX"], ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeRightY"]);
+                        var rightEyeDirection = Project2DTo3D(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeRightX"], ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeRightY"]);
 
                         UpdateEye(
                             rightEyeDirection,
