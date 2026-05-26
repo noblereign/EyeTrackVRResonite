@@ -7,9 +7,9 @@ namespace EyeTrackVRResonite
 {
     public class EyeTrackVR : ResoniteMod
     {
-        internal const string VERSION_CONSTANT = "2.3.0";
+        internal const string VERSION_CONSTANT = "3.0.0";
         public override string Name => "EyeTrackVRResonite";
-        public override string Author => "qualia + Wolf-Seisenbacher + Meister1593 + PLYSHKA + dfgHiatus";
+        public override string Author => "qualia + Wolf-Seisenbacher + PLYSHKA + dfgHiatus + Noble";
         public override string Version => VERSION_CONSTANT;
         public override string Link => "https://github.com/WolfSeisenbacher/EyeTrackVRResonite";
 
@@ -32,6 +32,12 @@ namespace EyeTrackVRResonite
                     Warn(e.ToString());
                 }
             });
+
+        }
+        internal enum TrackingType
+        {
+            VRCFTv1,
+            VRCFTv2
         }
 
         private static ETVROSC _etvr;
@@ -52,6 +58,14 @@ namespace EyeTrackVRResonite
         [AutoRegisterConfigKey]
         private static readonly ModConfigurationKey<int> OscPort = new("osc_port", "EyeTrackVR OSC port", () => 9000);
 
+        [AutoRegisterConfigKey]
+        private static readonly ModConfigurationKey<TrackingType> OscTrackingType = new("tracking_type", "EyeTrackVR Tracking Type", () => TrackingType.VRCFTv1);
+
+        [AutoRegisterConfigKey]
+        private static readonly ModConfigurationKey<bool> UseFakeWiden = new("fake_widen", "Use Fake Widen (for v1 only)", () => true);
+
+        [AutoRegisterConfigKey]
+        private static readonly ModConfigurationKey<bool> IsSingleEye = new("single_eye", "Toggle if only tracking one eye", () => false);
 
         private class EyeTrackVRInterface : IInputDriver
         {
@@ -83,38 +97,139 @@ namespace EyeTrackVRResonite
 
                 _eyes.IsEyeTrackingActive = true;
 
-                var fakeWiden = MathX.Remap(MathX.Clamp01(ETVROSC.EyeDataWithAddress["/avatar/parameters/EyesY"]), 0f,
-                    1f, 0f, 0.33f);
+                if (_config.GetValue(OscTrackingType) == TrackingType.VRCFTv2)
+                {   
+                    var pupilDiameter = MathX.Clamp01((ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/PupilDilation"] / _config.GetValue(DilationScale)));
 
-		var pupilDiameter = MathX.Clamp01((ETVROSC.EyeDataWithAddress["/avatar/parameters/EyesDilation"] / _config.GetValue(DilationScale)));
+                    if (_config.GetValue(IsSingleEye)) // need to compute left and right from combined eye
+                    {
+                        var eyeDirection = Project2DTo3D(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeX"], ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeY"]);
 
-                var leftEyeDirection = Project2DTo3D(ETVROSC.EyeDataWithAddress["/avatar/parameters/LeftEyeX"],
-                    ETVROSC.EyeDataWithAddress["/avatar/parameters/EyesY"]);
-                UpdateEye(leftEyeDirection, float3.Zero, true, pupilDiameter,
-                    ETVROSC.EyeDataWithAddress["/avatar/parameters/LeftEyeLidExpandedSqueeze"],
-                    fakeWiden, 0f, 0f, deltaTime, _eyes.LeftEye);
+                        UpdateEye(
+                            eyeDirection,
+                            float3.Zero,
+                            true,
+                            pupilDiameter,
+                            MathX.Remap(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLid"], 0f, 0.75f, 0f, 1f), // 0 to 0.75 is actual openness
+                            MathX.Remap(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLid"], 0.75f, 1f, 0f, 1f), // 0.75 to 1 is widen. thanks vrcft!
+                            ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeSquint"],
+                            ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/BrowExpression"],
+                            deltaTime,
+                            _eyes.CombinedEye
+                        );
 
-                var rightEyeDirection = Project2DTo3D(ETVROSC.EyeDataWithAddress["/avatar/parameters/RightEyeX"],
-                    ETVROSC.EyeDataWithAddress["/avatar/parameters/EyesY"]);
-                UpdateEye(rightEyeDirection, float3.Zero, true, pupilDiameter,
-                    ETVROSC.EyeDataWithAddress["/avatar/parameters/RightEyeLidExpandedSqueeze"],
-                    fakeWiden, 0f, 0f, deltaTime, _eyes.RightEye);
+                        UpdateEye(
+                            eyeDirection,
+                            float3.Zero,
+                            true,
+                            pupilDiameter,
+                            MathX.Remap(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLid"], 0f, 0.75f, 0f, 1f), // 0 to 0.75 is actual openness
+                            MathX.Remap(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLid"], 0.75f, 1f, 0f, 1f), // 0.75 to 1 is widen. thanks vrcft!
+                            ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeSquint"],
+                            ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/BrowExpression"],
+                            deltaTime,
+                            _eyes.LeftEye
+                        );
 
-                var combinedDirection = MathX.Average(leftEyeDirection, rightEyeDirection);
-                var combinedOpenness =
-                    MathX.Average(ETVROSC.EyeDataWithAddress["/avatar/parameters/LeftEyeLidExpandedSqueeze"],
-                        ETVROSC.EyeDataWithAddress["/avatar/parameters/RightEyeLidExpandedSqueeze"]);
-                UpdateEye(combinedDirection, float3.Zero, true, pupilDiameter, combinedOpenness,
-                    fakeWiden, 0f, 0f, deltaTime, _eyes.CombinedEye);
-                _eyes.ComputeCombinedEyeParameters();
+                        UpdateEye(
+                            eyeDirection,
+                            float3.Zero,
+                            true,
+                            pupilDiameter,
+                            MathX.Remap(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLid"], 0f, 0.75f, 0f, 1f), // 0 to 0.75 is actual openness
+                            MathX.Remap(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLid"], 0.75f, 1f, 0f, 1f), // 0.75 to 1 is widen. thanks vrcft!
+                            ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeSquint"],
+                            ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/BrowExpression"],
+                            deltaTime,
+                            _eyes.RightEye
+                        );
+                    } 
+                    else // need to compute combined parameters from both eyes
+                    {
+                        var leftEyeDirection = Project2DTo3D(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLeftX"], ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLeftY"]);
 
+                        UpdateEye(
+                            leftEyeDirection,
+                            float3.Zero,
+                            true,
+                            pupilDiameter,
+                            MathX.Remap(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLidLeft"], 0f, 0.75f, 0f, 1f), // 0 to 0.75 is actual openness
+                            MathX.Remap(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLidLeft"], 0.75f, 1f, 0f, 1f), // 0.75 to 1 is widen. thanks vrcft!
+                            ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeSquintLeft"],
+                            ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/BrowExpressionLeft"],
+                            deltaTime,
+                            _eyes.LeftEye
+                        );
+
+                        var rightEyeDirection = Project2DTo3D(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeRightX"], ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeRightY"]);
+
+                        UpdateEye(
+                            rightEyeDirection,
+                            float3.Zero,
+                            true,
+                            pupilDiameter,
+                            MathX.Remap(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLidRight"], 0f, 0.75f, 0f, 1f), // 0 to 0.75 is actual openness
+                            MathX.Remap(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLidRight"], 0.75f, 1f, 0f, 1f), // 0.75 to 1 is widen. thanks vrcft!
+                            ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeSquintRight"],
+                            ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/BrowExpressionRight"],
+                            deltaTime,
+                            _eyes.RightEye
+                        );
+
+                        var combinedDirection = MathX.Average(leftEyeDirection, rightEyeDirection);
+                        var combinedOpenness = MathX.Remap(MathX.Average(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLidLeft"], ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLidRight"]), 0f, 0.75f, 0f, 1f);
+
+                        UpdateEye(
+                            combinedDirection,
+                            float3.Zero,
+                            true,
+                            pupilDiameter,
+                            combinedOpenness,
+                            0f, // These get calculated immediately after
+                            0f,
+                            0f,
+                            deltaTime,
+                            _eyes.CombinedEye
+                        );
+
+                        _eyes.ComputeCombinedEyeParameters();
+                    }
+                }
+                else
+                {
+                    var fakeWiden = _config.GetValue(UseFakeWiden) ? MathX.Remap(MathX.Clamp01(ETVROSC.EyeDataWithAddress["/avatar/parameters/EyesY"]), 0f,
+                        1f, 0f, 0.33f) : 0;
+
+                    var pupilDiameter = MathX.Clamp01((ETVROSC.EyeDataWithAddress["/avatar/parameters/EyesDilation"] / _config.GetValue(DilationScale)));
+
+                    var leftEyeDirection = Project2DTo3D(ETVROSC.EyeDataWithAddress["/avatar/parameters/LeftEyeX"],
+                        ETVROSC.EyeDataWithAddress["/avatar/parameters/EyesY"]);
+                    UpdateEye(leftEyeDirection, float3.Zero, true, pupilDiameter,
+                        ETVROSC.EyeDataWithAddress["/avatar/parameters/LeftEyeLidExpandedSqueeze"],
+                        fakeWiden, 0f, 0f, deltaTime, _eyes.LeftEye);
+
+                    var rightEyeDirection = Project2DTo3D(ETVROSC.EyeDataWithAddress["/avatar/parameters/RightEyeX"],
+                        ETVROSC.EyeDataWithAddress["/avatar/parameters/EyesY"]);
+                    UpdateEye(rightEyeDirection, float3.Zero, true, pupilDiameter,
+                        ETVROSC.EyeDataWithAddress["/avatar/parameters/RightEyeLidExpandedSqueeze"],
+                        fakeWiden, 0f, 0f, deltaTime, _eyes.RightEye);
+
+                    var combinedDirection = MathX.Average(leftEyeDirection, rightEyeDirection);
+                    var combinedOpenness =
+                        MathX.Average(ETVROSC.EyeDataWithAddress["/avatar/parameters/LeftEyeLidExpandedSqueeze"],
+                            ETVROSC.EyeDataWithAddress["/avatar/parameters/RightEyeLidExpandedSqueeze"]);
+                    UpdateEye(combinedDirection, float3.Zero, true, pupilDiameter, combinedOpenness,
+                        fakeWiden, 0f, 0f, deltaTime, _eyes.CombinedEye);
+
+                    _eyes.ComputeCombinedEyeParameters();
+                }
                 _eyes.ConvergenceDistance = 0f;
                 _eyes.Timestamp += deltaTime;
                 _eyes.FinishUpdate();
             }
 
             private static void UpdateEye(float3 gazeDirection, float3 gazeOrigin, bool status, float pupilSize,
-                float openness, float widen, float squeeze, float frown, float deltaTime, Eye eye)
+                float openness, float widen, float squeeze, float brow, float deltaTime, Eye eye)
             {
                 eye.IsDeviceActive = Engine.Current.InputInterface.VR_Active;
                 eye.IsTracking = status;
@@ -129,7 +244,8 @@ namespace EyeTrackVRResonite
                 eye.Openness = openness;
                 eye.Widen = widen;
                 eye.Squeeze = squeeze;
-                eye.Frown = frown;
+                eye.OuterBrowVertical = brow;
+                eye.InnerBrowVertical = brow;
             }
 
             private static float3 Project2DTo3D(float x, float y)
