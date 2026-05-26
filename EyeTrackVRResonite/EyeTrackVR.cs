@@ -65,7 +65,7 @@ namespace EyeTrackVRResonite
         private static readonly ModConfigurationKey<bool> UseFakeWiden = new("fake_widen", "Use Fake Widen (for v1 only)", () => true);
 
         [AutoRegisterConfigKey]
-        private static readonly ModConfigurationKey<bool> IsSingleEye = new("single_eye", "Toggle if only tracking one eye", () => false);
+        private static readonly ModConfigurationKey<bool> RemapOpennessToWiden = new("remap_openness", "Remap openness to also control eye widen (like in VRCFT's spec)", () => false);
 
         private class EyeTrackVRInterface : IInputDriver
         {
@@ -87,6 +87,11 @@ namespace EyeTrackVRResonite
                 _eyes = new Eyes(inputInterface, "EyeTrackVR Eye Tracking", true);
             }
 
+            private float OpennessRemap(float openness, bool allowWidenRemap, bool isWiden)
+            {
+                return allowWidenRemap ? (isWiden ? MathX.Remap(openness, 0.75f, 1f, 0f, 1f) : MathX.Remap(openness, 0f, 0.75f, 0f, 1f)) : (isWiden ? 0f : openness);
+            }
+
             public void UpdateInputs(float deltaTime)
             {
                 if (!_config.GetValue(ModEnabled))
@@ -97,11 +102,13 @@ namespace EyeTrackVRResonite
 
                 _eyes.IsEyeTrackingActive = true;
 
+                bool remapOpenness = _config.GetValue(RemapOpennessToWiden);
+
                 if (_config.GetValue(OscTrackingType) == TrackingType.VRCFTv2)
                 {   
                     var pupilDiameter = MathX.Clamp01((ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/PupilDilation"] / _config.GetValue(DilationScale)));
 
-                    if (_config.GetValue(IsSingleEye)) // need to compute left and right from combined eye
+                    if (ETVROSC._isSingleEye) // need to compute left and right from combined eye
                     {
                         var eyeDirection = Project2DTo3D(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeX"], ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeY"]);
 
@@ -110,8 +117,8 @@ namespace EyeTrackVRResonite
                             float3.Zero,
                             true,
                             pupilDiameter,
-                            MathX.Remap(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLid"], 0f, 0.75f, 0f, 1f), // 0 to 0.75 is actual openness
-                            MathX.Remap(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLid"], 0.75f, 1f, 0f, 1f), // 0.75 to 1 is widen. thanks vrcft!
+                            OpennessRemap(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLid"], remapOpenness, false), // 0 to 0.75 is actual openness
+                            OpennessRemap(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLid"], remapOpenness, true), // 0.75 to 1 is widen. thanks vrcft!
                             ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeSquint"],
                             ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/BrowExpression"],
                             deltaTime,
@@ -123,8 +130,8 @@ namespace EyeTrackVRResonite
                             float3.Zero,
                             true,
                             pupilDiameter,
-                            MathX.Remap(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLid"], 0f, 0.75f, 0f, 1f), // 0 to 0.75 is actual openness
-                            MathX.Remap(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLid"], 0.75f, 1f, 0f, 1f), // 0.75 to 1 is widen. thanks vrcft!
+                            OpennessRemap(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLid"], remapOpenness, false), // 0 to 0.75 is actual openness
+                            OpennessRemap(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLid"], remapOpenness, true), // 0.75 to 1 is widen. thanks vrcft!
                             ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeSquint"],
                             ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/BrowExpression"],
                             deltaTime,
@@ -136,8 +143,8 @@ namespace EyeTrackVRResonite
                             float3.Zero,
                             true,
                             pupilDiameter,
-                            MathX.Remap(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLid"], 0f, 0.75f, 0f, 1f), // 0 to 0.75 is actual openness
-                            MathX.Remap(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLid"], 0.75f, 1f, 0f, 1f), // 0.75 to 1 is widen. thanks vrcft!
+                            OpennessRemap(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLid"], remapOpenness, false), // 0 to 0.75 is actual openness
+                            OpennessRemap(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLid"], remapOpenness, true), // 0.75 to 1 is widen. thanks vrcft!
                             ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeSquint"],
                             ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/BrowExpression"],
                             deltaTime,
@@ -153,8 +160,8 @@ namespace EyeTrackVRResonite
                             float3.Zero,
                             true,
                             pupilDiameter,
-                            MathX.Remap(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLidLeft"], 0f, 0.75f, 0f, 1f), // 0 to 0.75 is actual openness
-                            MathX.Remap(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLidLeft"], 0.75f, 1f, 0f, 1f), // 0.75 to 1 is widen. thanks vrcft!
+                            OpennessRemap(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLidLeft"], remapOpenness, false), // 0 to 0.75 is actual openness
+                            OpennessRemap(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLidLeft"], remapOpenness, true), // 0.75 to 1 is widen. thanks vrcft!
                             ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeSquintLeft"],
                             ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/BrowExpressionLeft"],
                             deltaTime,
@@ -168,8 +175,8 @@ namespace EyeTrackVRResonite
                             float3.Zero,
                             true,
                             pupilDiameter,
-                            MathX.Remap(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLidRight"], 0f, 0.75f, 0f, 1f), // 0 to 0.75 is actual openness
-                            MathX.Remap(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLidRight"], 0.75f, 1f, 0f, 1f), // 0.75 to 1 is widen. thanks vrcft!
+                            OpennessRemap(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLidRight"], remapOpenness, false), // 0 to 0.75 is actual openness
+                            OpennessRemap(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLidRight"], remapOpenness, true), // 0.75 to 1 is widen. thanks vrcft!
                             ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeSquintRight"],
                             ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/BrowExpressionRight"],
                             deltaTime,
@@ -177,7 +184,7 @@ namespace EyeTrackVRResonite
                         );
 
                         var combinedDirection = MathX.Average(leftEyeDirection, rightEyeDirection);
-                        var combinedOpenness = MathX.Remap(MathX.Average(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLidLeft"], ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLidRight"]), 0f, 0.75f, 0f, 1f);
+                        var combinedOpenness = OpennessRemap(MathX.Average(ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLidLeft"], ETVROSC.EyeDataWithAddress["/avatar/parameters/v2/EyeLidRight"]), remapOpenness, true);
 
                         UpdateEye(
                             combinedDirection,
